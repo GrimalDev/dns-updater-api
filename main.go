@@ -25,7 +25,7 @@ func main() {
 	if domainBase == "" {
 		domainBase = "dns.local"
 	}
-	configPath := "/app/dnsmasq.conf"
+	configPath := "/etc/dnsmasq.conf"
 
 	e.POST("/update-dns", func(c echo.Context) error {
 		if c.Request().Header.Get("Authorization") != authToken {
