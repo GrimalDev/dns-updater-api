@@ -1,32 +1,58 @@
 # DNS Updater API
 
-Simple Go API to update `dnsmasq.conf` with hostname-to-IP mappings, dockerize.
+Simple Go API to update `dnsmasq.conf` with hostname-to-IP mappings, dockerized.
 
 ## Requirements
 
-- Docker and Docker Compose
-- Go (for local development, optional)
-- Bash (for running the command)
+- Docker
 
-## Setup
+## Installation with Docker Compose
 
 1. **Clone the Repository**
 
 2. **Configure Environment**
-   - Create a `.env` file:
-     ```
-     AUTH_TOKEN=your-secret-token
-     ```
-   - Replace `your-secret-token` with a secure token.
-   - Ensure an empty `dnsmasq.conf` exists in the project directory.
+   - copy the `.env.exemple` to `.env`
+   - adapt the parameters
 
-3. **Build and Run**
-
-   ```bash
-   docker-compose up --build
+   ```.env
+    AUTH_TOKEN=api-token # The API token used to authenticate with the API
+    DNSMASQ_FILE_PATH=dnsmasq.conf # The path to the dnsmasq configuration file that will be used to add the new subdomain
+    DOMAIN_BASE=dns.local #The dns base that will be used to append to the subdomain (hostname) from the query to the api
    ```
 
-   - API runs on `:8080`.
+3. **Run with Docker Compose**
+
+   ```bash
+   docker-compose up
+   ```
+
+   - Uses image: `ghcr.io/GrimalDev/dns-updater:latest`
+   - API runs on `http://localhost:8080`.
+
+## Self-Build
+
+1. **Requirements**
+   - Go 1.23+
+   - Docker and Docker Compose
+
+2. **Build and Run**
+   - Modify `docker-compose.yml` to use `build` instead of `image`:
+     ```yaml
+     version: "3.8"
+     services:
+       dns-updater:
+         build: .
+         ports:
+           - "8080:8080"
+         volumes:
+           - ./dnsmasq.conf:/app/dnsmasq.conf
+         env_file:
+           - .env
+     ```
+   - Run:
+     ```bash
+     docker-compose up --build
+     ```
 
 ## API Usage
 
@@ -58,7 +84,16 @@ Simple Go API to update `dnsmasq.conf` with hostname-to-IP mappings, dockerize.
 - **Script**: `update-dns.sh`
 - **Purpose**: Updates `dnsmasq.conf` with the local machine's IP and hostname.
 - **Usage**:
-  1. Ensure the `Authorization` header in `update-dns.sh` matches the `.env` `AUTH_TOKEN`.
+  1. Ensure `Authorization` header in `update-dns.sh` matches `.env` `AUTH_TOKEN`:
+     ```bash
+     #!/bin/bash
+     IP=$(hostname -I | awk '{print $1}')
+     HOSTNAME=$(hostname)
+     curl -X POST http://localhost:8080/update-dns \
+       -H "Authorization: your-secret-token" \
+       -H "Content-Type: application/json" \
+       -d "{\"ip\":\"$IP\",\"hostname\":\"$HOSTNAME\"}"
+     ```
   2. Make executable:
      ```bash
      chmod +x update-dns.sh
@@ -70,7 +105,5 @@ Simple Go API to update `dnsmasq.conf` with hostname-to-IP mappings, dockerize.
 
 ## Notes
 
-- The API updates `/app/dnsmasq.conf` with `address=/<hostname>.nsa.local/<ip>`.
+- The API updates `/app/dnsmasq.conf` with `address=/<hostname>.<base dns>.local/<ip>`.
 - The `dnsmasq.conf` file is persisted in the project directory.
-- Ensure the API is running before executing the Bash script.
-- Update `<api-host>` in `update-dns.sh` if not using `localhost`.
