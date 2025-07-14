@@ -1,11 +1,12 @@
 services:
   dns-updater:
     image: ghcr.io/grimaldev/dns-updater
+    container_name: dns-updater
     ports:
       - "8080:8080"
       - "53:53/udp"
     volumes:
-      - ./dnsmasq.conf:/app/dnsmasq.conf
+      - ${DNSMASQ_FILE_PATH}:/app/dnsmasq.conf
     env_file:
       - .env
     cap_add:
