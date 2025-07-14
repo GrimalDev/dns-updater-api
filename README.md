@@ -79,7 +79,7 @@ Simple Go API to update `dnsmasq.conf` with hostname-to-IP mappings, dockerized.
     -d '{"ip":"192.168.1.100","hostname":"server1"}'
   ```
 
-## Bash Command
+## Bash Script
 
 - **Script**: `update-dns.sh`
 - **Purpose**: Updates `dnsmasq.conf` with the local machine's IP and hostname.
@@ -102,6 +102,12 @@ Simple Go API to update `dnsmasq.conf` with hostname-to-IP mappings, dockerized.
      ```bash
      ./update-dns.sh
      ```
+## Bash Command
+
+This is to run in cron on start for exemple:
+```bash
+IP=$(hostname -I | awk '{print $1}'); HOSTNAME=$(hostname); curl -X POST http://localhost:8080/update-dns -H "Authorization: your-secret-token" -H "Content-Type: application/json" -d "{\"ip\":\"$IP\",\"hostname\":\"$HOSTNAME\"}"
+```
 
 ## Notes
 
