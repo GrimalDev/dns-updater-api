@@ -1,0 +1,39 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+dns-updater
+
+# Build output
+/bin/
+/dist/
+
+# Dependencies
+/go.mod
+/go.sum
+/vendor/
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Testing
+*.test
+*.out
+coverage.*
+
+# OS generated
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.yml
+.env
+dnsmasq.conf
