@@ -5,10 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
-	"syscall"
-	"unicode"
 
 	"github.com/labstack/echo/v4"
 )
@@ -50,6 +47,7 @@ func main() {
 
 	e.Logger.Fatal(e.Start(":8080"))
 }
+
 func updateDNSConfig(ip, hostname, configPath, domainBase string) error {
 	content, err := os.ReadFile(configPath)
 	if err != nil {
@@ -78,21 +76,17 @@ func updateDNSConfig(ip, hostname, configPath, domainBase string) error {
 		return err
 	}
 
-	// Find the dnsmasq PID and send SIGHUP
-	pidBytes, err := exec.Command("pidof", "dnsmasq").Output()
-	if err != nil {
-		return fmt.Errorf("failed to find dnsmasq PID: %w", err)
+	// Kill dnsmasq
+	if err := exec.Command("pkill", "dnsmasq").Run(); err != nil {
+		return fmt.Errorf("failed to kill dnsmasq: %w", err)
 	}
 
-	pidStr := strings.TrimSpace(string(pidBytes))
-
-	for _, p := range strings.FieldsFunc(pidStr, unicode.IsSpace) {
-		pid, err := strconv.Atoi(p)
-		if err != nil {
-			continue
-		}
-		syscall.Kill(pid, syscall.SIGHUP)
-	}
+	// Restart dnsmasq
+	// Use full path if needed (e.g., /usr/sbin/dnsmasq) and required args if any
+	cmd := exec.Command("dnsmasq", "--no-daemon")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	go cmd.Run() // Run in background so it doesn't block
 
 	return nil
 }
