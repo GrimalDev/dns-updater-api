@@ -16,6 +16,10 @@ type DNSRequest struct {
 func main() {
 	e := echo.New()
 	authToken := os.Getenv("AUTH_TOKEN")
+	domainBase := os.Getenv("DOMAIN_BASE")
+	if domainBase == "" {
+		domainBase = "dns.local"
+	}
 	configPath := "/app/dnsmasq.conf"
 
 	e.POST("/update-dns", func(c echo.Context) error {
@@ -32,28 +36,28 @@ func main() {
 			return c.String(http.StatusBadRequest, "IP and hostname required")
 		}
 
-		if err := updateDNSConfig(req.IP, req.Hostname, configPath); err != nil {
+		if err := updateDNSConfig(req.IP, req.Hostname, configPath, domainBase); err != nil {
 			return c.String(http.StatusInternalServerError, "Failed to update config")
 		}
 
-		return c.String(http.StatusOK, fmt.Sprintf("DNS updated for %s.nsa.local to %s", req.Hostname, req.IP))
+		return c.String(http.StatusOK, fmt.Sprintf("DNS updated for %s.%s to %s", req.Hostname, domainBase, req.IP))
 	})
 
 	e.Logger.Fatal(e.Start(":8080"))
 }
 
-func updateDNSConfig(ip, hostname, configPath string) error {
+func updateDNSConfig(ip, hostname, configPath, domainBase string) error {
 	content, err := os.ReadFile(configPath)
 	if err != nil {
 		return err
 	}
 
 	lines := strings.Split(string(content), "\n")
-	newEntry := fmt.Sprintf("address=/%s.nsa.local/%s", hostname, ip)
+	newEntry := fmt.Sprintf("address=/%s.%s/%s", hostname, domainBase, ip)
 	updated := false
 
 	for i, line := range lines {
-		if strings.Contains(line, fmt.Sprintf("/%s.nsa.local/", hostname)) {
+		if strings.Contains(line, fmt.Sprintf("/%s.%s/", hostname, domainBase)) {
 			lines[i] = newEntry
 			updated = true
 			break
