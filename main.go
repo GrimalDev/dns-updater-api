@@ -38,29 +38,36 @@ func main() {
 			return c.String(http.StatusBadRequest, "IP and hostname required")
 		}
 
-		if err := updateDNSConfig(req.IP, req.Hostname, configPath, domainBase); err != nil {
+		changed, err := updateDNSConfig(req.IP, req.Hostname, configPath, domainBase)
+		if err != nil {
 			return c.String(http.StatusInternalServerError, "Failed to update config")
 		}
-
+		if !changed {
+			return c.String(http.StatusOK, "No changes needed; config already up-to-date")
+		}
 		return c.String(http.StatusOK, fmt.Sprintf("DNS updated for %s.%s to %s", req.Hostname, domainBase, req.IP))
 	})
 
 	e.Logger.Fatal(e.Start(":8080"))
 }
 
-func updateDNSConfig(ip, hostname, configPath, domainBase string) error {
+func updateDNSConfig(ip, hostname, configPath, domainBase string) (bool, error) {
 	content, err := os.ReadFile(configPath)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	lines := strings.Split(string(content), "\n")
 	newEntry := fmt.Sprintf("address=/%s.%s/%s", hostname, domainBase, ip)
 	updated := false
+	changed := false
 
 	for i, line := range lines {
 		if strings.Contains(line, fmt.Sprintf("/%s.%s/", hostname, domainBase)) {
-			lines[i] = newEntry
+			if line != newEntry {
+				lines[i] = newEntry
+				changed = true
+			}
 			updated = true
 			break
 		}
@@ -68,17 +75,21 @@ func updateDNSConfig(ip, hostname, configPath, domainBase string) error {
 
 	if !updated {
 		lines = append(lines, newEntry)
+		changed = true
 	}
 
-	// Write the updated config
+	if !changed {
+		return false, nil
+	}
+
 	err = os.WriteFile(configPath, []byte(strings.Join(lines, "\n")), 0644)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// Kill dnsmasq
 	if err := exec.Command("pkill", "dnsmasq").Run(); err != nil {
-		return fmt.Errorf("failed to kill dnsmasq: %w", err)
+		return false, fmt.Errorf("failed to kill dnsmasq: %w", err)
 	}
 
 	// Restart dnsmasq
@@ -88,5 +99,5 @@ func updateDNSConfig(ip, hostname, configPath, domainBase string) error {
 	cmd.Stderr = os.Stderr
 	go cmd.Run() // Run in background so it doesn't block
 
-	return nil
+	return true, nil
 }
