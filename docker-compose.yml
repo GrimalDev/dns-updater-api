@@ -6,7 +6,7 @@ services:
       - "8080:8080"
       - "53:53/udp"
     volumes:
-      - ${DNSMASQ_FILE_PATH}:/app/dnsmasq.conf
+      - ${DNSMASQ_FILE_PATH}:/etc/dnsmasq.conf
     env_file:
       - .env
     cap_add:

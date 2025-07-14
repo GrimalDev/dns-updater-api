@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"unicode"
 
 	"github.com/labstack/echo/v4"
 )
@@ -24,7 +25,7 @@ func main() {
 	if domainBase == "" {
 		domainBase = "dns.local"
 	}
-	configPath := "/etc/dnsmasq.d/hosts.d/custom.hosts"
+	configPath := "/app/dnsmasq.conf"
 
 	e.POST("/update-dns", func(c echo.Context) error {
 		if c.Request().Header.Get("Authorization") != authToken {
@@ -49,10 +50,9 @@ func main() {
 
 	e.Logger.Fatal(e.Start(":8080"))
 }
-
 func updateDNSConfig(ip, hostname, configPath, domainBase string) error {
 	content, err := os.ReadFile(configPath)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil {
 		return err
 	}
 
@@ -72,25 +72,27 @@ func updateDNSConfig(ip, hostname, configPath, domainBase string) error {
 		lines = append(lines, newEntry)
 	}
 
-	if err := os.WriteFile(configPath, []byte(strings.Join(lines, "\n")), 0644); err != nil {
+	// Write the updated config
+	err = os.WriteFile(configPath, []byte(strings.Join(lines, "\n")), 0644)
+	if err != nil {
 		return err
 	}
 
-	// Send SIGHUP to dnsmasq
-	pid, err := exec.Command("pidof", "dnsmasq").Output()
+	// Find the dnsmasq PID and send SIGHUP
+	pidBytes, err := exec.Command("pidof", "dnsmasq").Output()
 	if err != nil {
-		return fmt.Errorf("failed to get dnsmasq PID: %v", err)
+		return fmt.Errorf("failed to find dnsmasq PID: %w", err)
 	}
 
-	pidStr := strings.TrimSpace(string(pid))
-	if err := syscall.Kill(atoi(pidStr), syscall.SIGHUP); err != nil {
-		return fmt.Errorf("failed to send SIGHUP: %v", err)
+	pidStr := strings.TrimSpace(string(pidBytes))
+
+	for _, p := range strings.FieldsFunc(pidStr, unicode.IsSpace) {
+		pid, err := strconv.Atoi(p)
+		if err != nil {
+			continue
+		}
+		syscall.Kill(pid, syscall.SIGHUP)
 	}
 
 	return nil
-}
-
-func atoi(s string) int {
-	n, _ := strconv.Atoi(s)
-	return n
 }
