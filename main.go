@@ -2,10 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/labstack/echo/v4"
 	"net/http"
 	"os"
+	"os/exec"
+	"strconv"
 	"strings"
+	"syscall"
+
+	"github.com/labstack/echo/v4"
 )
 
 type DNSRequest struct {
@@ -20,7 +24,7 @@ func main() {
 	if domainBase == "" {
 		domainBase = "dns.local"
 	}
-	configPath := "/app/dnsmasq.conf"
+	configPath := "/etc/dnsmasq.d/hosts.d/custom.hosts"
 
 	e.POST("/update-dns", func(c echo.Context) error {
 		if c.Request().Header.Get("Authorization") != authToken {
@@ -48,7 +52,7 @@ func main() {
 
 func updateDNSConfig(ip, hostname, configPath, domainBase string) error {
 	content, err := os.ReadFile(configPath)
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
 
@@ -68,5 +72,25 @@ func updateDNSConfig(ip, hostname, configPath, domainBase string) error {
 		lines = append(lines, newEntry)
 	}
 
-	return os.WriteFile(configPath, []byte(strings.Join(lines, "\n")), 0644)
+	if err := os.WriteFile(configPath, []byte(strings.Join(lines, "\n")), 0644); err != nil {
+		return err
+	}
+
+	// Send SIGHUP to dnsmasq
+	pid, err := exec.Command("pidof", "dnsmasq").Output()
+	if err != nil {
+		return fmt.Errorf("failed to get dnsmasq PID: %v", err)
+	}
+
+	pidStr := strings.TrimSpace(string(pid))
+	if err := syscall.Kill(atoi(pidStr), syscall.SIGHUP); err != nil {
+		return fmt.Errorf("failed to send SIGHUP: %v", err)
+	}
+
+	return nil
+}
+
+func atoi(s string) int {
+	n, _ := strconv.Atoi(s)
+	return n
 }
