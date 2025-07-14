@@ -34,6 +34,5 @@ coverage.*
 Thumbs.db
 
 # Docker
-docker-compose.yml
 .env
 dnsmasq.conf
