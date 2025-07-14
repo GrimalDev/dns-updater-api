@@ -5,8 +5,6 @@ WORKDIR /app
 RUN apk add --no-cache dnsmasq
 
 COPY main.go .
-COPY dnsmasq.conf /etc/dnsmasq.conf
-COPY dnsmasq.d/ /etc/dnsmasq.d/
 
 # Build Go application
 RUN go mod init dns-updater && \
